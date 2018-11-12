@@ -66,15 +66,19 @@ observables['ATLAS Phase II'] = observables['CMS Phase II']
 
 # numbers provided by Sandra Malvezzi
 # columns: obs, rows: unc. sources
-_cms_uncorr_sys_ = np.array([[0.0025, 0.03, 0.0325, 0],
-[0.0065, 0.0075, 0.007, 0],
-[0.0095, 0.0095, 0.0095, 0],
-[5.25e-05, 0.0005, 0.0007, 0]])
-_cms_corr_sys_ = np.array([[0.0115, 0.0065, 0.0075, 0],
-[0.02, 0.005, 0.0595, 0],
-[0.0006, 0.0012, 0.0016, 0],
-[0.0014, 0.0076, 0.0108, 0],
-[0, 0, 0, 0]])
+_cms_uncorr_sys_ = np.array([
+    [0.0115, 0.0065, 0.0075, 0],
+    [0.00177, 0.000417, 0.00497, 0],
+    [0.0006, 0.0012, 0.0016, 0],
+    [0.0014, 0.0076, 0.0108, 0],
+    [0, 0, 0, 0],
+])
+_cms_corr_sys_ = np.array([
+    [0.0025, 0.03, 0.0325, 0],
+    [0.0065, 0.0075, 0.007, 0],
+    [0.0095, 0.0095, 0.0095, 0],
+    [5.25e-05, 0.0005, 0.0007, 0],
+])
 _cms_stat = np.array([0.014, 0.014, 0.009, 0.12 * 3.5e-9])
 
 covariances['CMS Phase II stat'] = _cms_stat**2 * np.eye(4)  # uncorrelated stat
