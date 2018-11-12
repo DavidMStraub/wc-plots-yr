@@ -1,6 +1,5 @@
 """WC Projections for HL LHC & Belle-II"""
 
-from collections import defaultdict
 import numpy as np
 from math import sqrt
 import flavio
@@ -28,10 +27,6 @@ YMIN = -1.5
 YMAX = 1.5
 
 
-def tree():
-    return defaultdict(tree)
-
-
 def np_measurement(name, w, observables, covariance):
     """Measurement instance of `observables` measured with `covariance`
     assuming the central values to be equal to the NP predictions given
@@ -46,49 +41,66 @@ def np_measurement(name, w, observables, covariance):
     return m
 
 
-observables = tree()
-covariances = tree()
-likelihoods = tree()
-plotdata = tree()
+observables = {}
+covariances = {}
+likelihoods = {}
+plotdata = {}
 npscenarios = {}
 
 # CMS
 
-observables['CMS']['present'] = [
+observables['CMS present'] = [
     ('<P5p>(B0->K*mumu)', 1, 2),
     ('<P5p>(B0->K*mumu)', 2, 4.3),
     ('<P5p>(B0->K*mumu)', 4.3, 6),
+    'BR(Bs->mumu)'
 ]
 
 
-observables['CMS']['Phase II'] = observables['CMS']['present']
+observables['CMS Phase II'] = observables['CMS present']
+observables['CMS Phase I'] = observables['CMS Phase II']
+observables['ATLAS Phase I'] = observables['CMS Phase I']
+observables['ATLAS Phase II'] = observables['CMS Phase II']
 
 # Building the CMS Phase II covariance matrix
 
 # numbers provided by Sandra Malvezzi
 # columns: obs, rows: unc. sources
-# the last column is ignored (q^2 > 6 GeV^2)
-_cms_uncorr_sys_ = np.array([[0.0025, 0.03, 0.0325, 0.0225],
-[0.0065, 0.0075, 0.007, 0.0029],
-[0.0095, 0.0095, 0.0095, 0.0095],
-[5.25e-05, 0.0005, 0.0007, 0.0004]])
-_cms_corr_sys_ = np.array([[0.0115, 0.0065, 0.0075, 0.006],
-[0.02, 0.005, 0.0595, 0.053],
-[0.0006, 0.0012, 0.0016, 0.0007],
-[0.0014, 0.0076, 0.0108, 0.0022],
-[0, 0, 0, 0.006]])
-_cms_stat = np.array([0.014, 0.014, 0.009,  0.008])
+_cms_uncorr_sys_ = np.array([[0.0025, 0.03, 0.0325, 0],
+[0.0065, 0.0075, 0.007, 0],
+[0.0095, 0.0095, 0.0095, 0],
+[5.25e-05, 0.0005, 0.0007, 0]])
+_cms_corr_sys_ = np.array([[0.0115, 0.0065, 0.0075, 0],
+[0.02, 0.005, 0.0595, 0],
+[0.0006, 0.0012, 0.0016, 0],
+[0.0014, 0.0076, 0.0108, 0],
+[0, 0, 0, 0]])
+_cms_stat = np.array([0.014, 0.014, 0.009, 0.12 * 3.5e-9])
 
-covariances['CMS']['Phase II'] = (
-_cms_stat[:3]**2 * np.eye(3)  # uncorrelated stat
-+ np.sum(_cms_uncorr_sys_**2, axis=0)[:3] * np.eye(3)  # uncorrelated sys
-+ np.sum(_cms_corr_sys_**2, axis=0)[:3] * np.ones((3, 3))  # fully correlated sys
+covariances['CMS Phase II stat'] = _cms_stat**2 * np.eye(4)  # uncorrelated stat
+covariances['CMS Phase I stat'] = np.sqrt(300 / 50) * covariances['CMS Phase II stat']
+
+covariances['CMS Phase II stat+sys'] = (
+covariances['CMS Phase II stat']
++ np.sum(_cms_uncorr_sys_**2, axis=0) * np.eye(4)  # uncorrelated sys
++ np.sum(_cms_corr_sys_**2, axis=0) * np.ones((4, 4))  # fully correlated sys
+)
+covariances['CMS Phase I stat+sys'] = (
+covariances['CMS Phase I stat']
++ np.sum(_cms_uncorr_sys_**2, axis=0) * np.eye(4)  # uncorrelated sys
++ np.sum(_cms_corr_sys_**2, axis=0) * np.ones((4, 4))  # fully correlated sys
 )
 
+#  ATLAS = CMS
+
+covariances['ATLAS Phase I stat'] = covariances['CMS Phase I stat']
+covariances['ATLAS Phase II stat'] = covariances['CMS Phase II stat']
+covariances['ATLAS Phase I stat+sys'] = covariances['CMS Phase I stat+sys']
+covariances['ATLAS Phase II stat+sys'] = covariances['CMS Phase II stat+sys']
 
 # LHCb
 
-observables['LHCb']['present'] = [
+observables['LHCb present'] = [
     ('<FL>(B0->K*mumu)', 1.1, 6),
     ('<S3>(B0->K*mumu)', 1.1, 6),
     ('<S4>(B0->K*mumu)', 1.1, 6),
@@ -105,9 +117,11 @@ observables['LHCb']['present'] = [
     ('<S7>(B0->K*mumu)', 15, 19),
     ('<S8>(B0->K*mumu)', 15, 19),
     ('<S9>(B0->K*mumu)', 15, 19),
+    'BR(Bs->mumu)'
 ]
 
-observables['LHCb']['Phase II'] = observables['LHCb']['present']
+observables['LHCb Phase II'] = observables['LHCb present']
+observables['LHCb Phase I'] = observables['LHCb Phase II']
 
 # Building the LHCb covariance matrix
 
@@ -129,24 +143,8 @@ def lhcb_scale_uncertainty(lumi):
         raise
 
 # numbers provided by Christoph Langenbruch
-_lhcb_errors = np.array([
-    sqrt((0.036)**2 + (0.017)**2),
-    sqrt((0.038)**2 + (0.004)**2),
-    sqrt((0.057)**2 + (0.004)**2),
-    sqrt((0.050)**2 + (0.005)**2),
-    sqrt((0.034)**2 + (0.007)**2),
-    sqrt((0.050)**2 + (0.006)**2),
-    sqrt((0.058)**2 + (0.008)**2),
-    sqrt((0.042)**2 + (0.004)**2),
-    sqrt((0.030)**2 + (0.008)**2),
-    sqrt((0.033)**2 + (0.009)**2),
-    sqrt((0.041)**2 + (0.007)**2),
-    sqrt((0.037)**2 + (0.009)**2),
-    sqrt((0.027)**2 + (0.009)**2),
-    sqrt((0.043)**2 + (0.006)**2),
-    sqrt((0.045)**2 + (0.003)**2),
-    sqrt((0.039)**2 + (0.002)**2)
-])
+_lhcb_err_stat = np.array([0.036, 0.038, 0.057, 0.050, 0.034, 0.050, 0.058, 0.042, 0.030, 0.033, 0.041, 0.037, 0.027, 0.043, 0.045, 0.039])
+_lhcb_err_sys = np.array([0.017, 0.004, 0.004, 0.005, 0.007, 0.006, 0.008, 0.004, 0.008, 0.009, 0.007, 0.009, 0.009, 0.006, 0.003, 0.002])
 
 # low q^2 correlation
 _lhcb_correlation_low = flavio.measurements._fix_correlation_matrix([[1.00, -0.04, 0.05, 0.03, 0.05, -0.04, -0.01, 0.08],
@@ -168,16 +166,37 @@ _lhcb_correlation_high = flavio.measurements._fix_correlation_matrix([[1.00, 0.1
                                         [1.00]], 8)
 
 
-def lhcb_covariance(lumi):
+def lhcb_covariance_ksmumu(lumi, include_sys=True):
     scale = lhcb_scale_uncertainty(lumi)
-    err = scale * _lhcb_errors
+    if include_sys:
+        err = scale * np.sqrt(_lhcb_err_stat**2 + _lhcb_err_sys**2)
+    else:
+        err = scale * _lhcb_err_stat
     Z = np.zeros((8, 8))  # zero correlation between hi & lo q^2
     corr = np.block([[_lhcb_correlation_low, Z], [Z, _lhcb_correlation_high]])
     cov = np.outer(err, err) * corr
     return cov
 
 
-covariances['LHCb']['Phase II'] = lhcb_covariance(lumi=300)
+def lhcb_covariance(lumi, include_sys=True):
+    cov_ksmumu = lhcb_covariance_ksmumu(lumi, include_sys=include_sys)
+    D = len(cov_ksmumu)
+    cov = np.zeros((D + 1, D + 1))
+    cov[:D, :D] = cov_ksmumu
+    # BR(Bs->mumu)
+    if lumi == 50:
+        cov[D, D] = (0.34e-9)**2
+    elif lumi == 300:
+        cov[D, D] = (0.17e-9)**2
+    else:
+        raise ValueError()
+    return cov
+
+
+covariances['LHCb Phase I stat'] = lhcb_covariance(lumi=50, include_sys=False)
+covariances['LHCb Phase I stat+sys'] = lhcb_covariance(lumi=50, include_sys=True)
+covariances['LHCb Phase II stat'] = lhcb_covariance(lumi=300, include_sys=False)
+covariances['LHCb Phase II stat+sys'] = lhcb_covariance(lumi=300, include_sys=True)
 
 
 def C9C10scen(C9, C10):
@@ -193,48 +212,35 @@ def compute_sm_covariance(N=100, threads=4):
     """Compute the SM covariance for all observables."""
     # all observables from all experiments at all phases
     obs = list(set([o
-                    for exp in observables.values()
-                    for phase in exp.values()
-                    for o in phase]))
+                    for name in observables.values()
+                    for o in name]))
     return flavio.sm_covariance(obs, N=N, threads=threads)
 
 
 # Construct Likelihoods
 
-likelihoods['LHCb']['present'] = FastLikelihood(
-    'Likelihood LHCb present',
-    observables=observables['LHCb']['present'],
-    include_measurements=['LHCb B->K*mumu 2015 S 1.1-6',
-                          'LHCb B->K*mumu 2015 S 15-19'],
-)
+# future
 
-np_measurement('Projection LHCb Phase II',
-               w=npscenarios['Scenario I'],
-               observables=observables['LHCb']['Phase II'],
-               covariance=covariances['LHCb']['Phase II'])
+for phase in ['Phase I', 'Phase II', ]:
+    for errscen in ['stat', 'stat+sys']:
+        for npscen in ['Scenario I', 'Scenario II', 'SM']:
+            for exp in ['LHCb', 'CMS', 'ATLAS']:
+                np_measurement('Projection {} {} {} {}'.format(exp, phase, errscen, npscen),
+                               w=npscenarios[npscen],
+                               observables=observables[' '.join([exp, phase])],
+                               covariance=covariances[' '.join([exp, phase, errscen])])
 
-likelihoods['LHCb']['Phase II'] = FastLikelihood(
-    'Likelihood LHCb Phase II',
-    observables=observables['LHCb']['Phase II'],
-    include_measurements=['Projection LHCb Phase II'],
-)
-
-likelihoods['CMS']['present'] = FastLikelihood(
-    'Likelihood CMS present',
-    observables=observables['CMS']['present'],
-    include_measurements=['CMS B->K*mumu 2017 P5p'],
-)
-
-np_measurement('Projection CMS Phase II',
-               w=npscenarios['Scenario II'],
-               observables=observables['CMS']['Phase II'],
-               covariance=covariances['CMS']['Phase II'])
-
-likelihoods['CMS']['Phase II'] = FastLikelihood(
-    'Likelihood CMS Phase II',
-    observables=observables['CMS']['Phase II'],
-    include_measurements=['Projection CMS Phase II'],
-)
+            likelihoods[' '.join([phase, errscen, npscen])] = FastLikelihood(
+                'Likelihood LHC {} {} {}'.format(phase, errscen, npscen),
+                observables=list(set(observables['LHCb {}'.format(phase)]
+                                     + observables['CMS {}'.format(phase)]
+                                     + observables['ATLAS {}'.format(phase)])),
+                include_measurements=[
+                    'Projection LHCb {} {} {}'.format(phase, errscen, npscen),
+                    'Projection CMS {} {} {}'.format(phase, errscen, npscen),
+                    'Projection ATLAS {} {} {}'.format(phase, errscen, npscen),
+                    ]
+            )
 
 
 if __name__ == '__main__':
@@ -253,8 +259,7 @@ if __name__ == '__main__':
 
     par = flavio.default_parameters.get_central_all()
 
-    for exp, vexp in likelihoods.items():
-        for phase, L in vexp.items():
+    for name, L in likelihoods.items():
             smcov_dict = dict(covariance=smcov,
                               observables=L.observables)
             L.sm_covariance.load_dict(smcov_dict)
@@ -264,9 +269,9 @@ if __name__ == '__main__':
                 w = C9C10scen(*x)
                 return L.log_likelihood(par, w)
 
-            logging.info("Computing plot {} {} ...".format(exp, phase))
+            logging.info("Computing plot {} ...".format(name))
 
-            plotdata[exp][phase] = fpl.likelihood_contour_data(
+            plotdata[name] = fpl.likelihood_contour_data(
                 log_likelihood,
                 XMIN, XMAX, YMIN, YMAX,
                 steps=STEPS, threads=THREADS,
