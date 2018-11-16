@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 SMCOV = 'smcov.p'
 PDAT = 'plotdata.p'
 
-N = 200
+N = 2000
 THREADS = 8
 STEPS = 20
 
@@ -66,33 +66,51 @@ observables['ATLAS Phase II'] = observables['CMS Phase II']
 
 # numbers provided by Sandra Malvezzi
 # columns: obs, rows: unc. sources
-_cms_uncorr_sys_ = np.array([
+_cms_uncorr_sys_3000 = np.array([
     [0.0115, 0.0065, 0.0075, 0],
     [0.00177, 0.000417, 0.00497, 0],
     [0.0006, 0.0012, 0.0016, 0],
     [0.0014, 0.0076, 0.0108, 0],
     [0, 0, 0, 0],
 ])
-_cms_corr_sys_ = np.array([
+_cms_uncorr_sys_300 = np.array([
+    [0.0115, 0.0065, 0.0075, 0],
+    [0.0056, 0.0013, 0.0157, 0],
+    [0.0014, 0.0032, 0.004, 0],
+    [0.0035, 0.0195, 0.0272, 0],
+    [0, 0, 0, 0],
+])
+_cms_corr_sys_3000 = np.array([
     [0.0025, 0.03, 0.0325, 0],
     [0.0065, 0.0075, 0.007, 0],
     [0.0095, 0.0095, 0.0095, 0],
     [5.25e-05, 0.0005, 0.0007, 0],
 ])
-_cms_stat = np.array([0.014, 0.014, 0.009, 0.12 * 3.5e-9])
+_cms_corr_sys_300 = np.array([
+    [0.0025, 0.03, 0.0325, 0],
+    [0.0065, 0.0075, 0.007, 0],
+    [0.0095, 0.0095, 0.0095, 0],
+    [0.0001, 0.0005, 0.0007, 0],
+])
+_cms_stat_300 = np.array([0.045, 0.045, 0.029, 0.12 * 3.5e-9])
+_cms_stat_3000 = np.array([0.014, 0.014, 0.009, 0.11 * 3.5e-9])
 
-covariances['CMS Phase II stat'] = _cms_stat**2 * np.eye(4)  # uncorrelated stat
-covariances['CMS Phase I stat'] = np.sqrt(300 / 50) * covariances['CMS Phase II stat']
+covariances['CMS Phase I stat'] = _cms_stat_300**2 * np.eye(4)  # uncorrelated stat
+covariances['CMS Phase II stat'] = _cms_stat_3000**2 * np.eye(4)  # uncorrelated stat
 
+_var_corr = np.sum(_cms_corr_sys_3000**2, axis=0)  # error^2 of fully correlated systematic
+_corr = np.array([[1, 1, 1, 0], [1, 1, 1, 0], [1, 1, 1, 0], [0, 0, 0, 1]])  # correlation matrix
 covariances['CMS Phase II stat+sys'] = (
 covariances['CMS Phase II stat']
-+ np.sum(_cms_uncorr_sys_**2, axis=0) * np.eye(4)  # uncorrelated sys
-+ np.sum(_cms_corr_sys_**2, axis=0) * np.ones((4, 4))  # fully correlated sys
++ np.sum(_cms_uncorr_sys_3000**2, axis=0) * np.eye(4)  # uncorrelated sys
++ np.outer(_var_corr, _var_corr) * _corr   # fully correlated sys
 )
+
+_var_corr = np.sum(_cms_corr_sys_300**2, axis=0)  # error^2 of fully correlated systematic
 covariances['CMS Phase I stat+sys'] = (
 covariances['CMS Phase I stat']
-+ np.sum(_cms_uncorr_sys_**2, axis=0) * np.eye(4)  # uncorrelated sys
-+ np.sum(_cms_corr_sys_**2, axis=0) * np.ones((4, 4))  # fully correlated sys
++ np.sum(_cms_uncorr_sys_300**2, axis=0) * np.eye(4)  # uncorrelated sys
++ np.outer(_var_corr, _var_corr) * _corr   # fully correlated sys
 )
 
 #  ATLAS = CMS
@@ -188,17 +206,17 @@ def lhcb_covariance(lumi, include_sys=True):
     cov = np.zeros((D + 1, D + 1))
     cov[:D, :D] = cov_ksmumu
     # BR(Bs->mumu)
-    if lumi == 50:
-        cov[D, D] = (0.34e-9)**2
+    if lumi == 23:
+        cov[D, D] = (0.30e-9)**2
     elif lumi == 300:
-        cov[D, D] = (0.17e-9)**2
+        cov[D, D] = (0.16e-9)**2
     else:
         raise ValueError()
     return cov
 
 
-covariances['LHCb Phase I stat'] = lhcb_covariance(lumi=50, include_sys=False)
-covariances['LHCb Phase I stat+sys'] = lhcb_covariance(lumi=50, include_sys=True)
+covariances['LHCb Phase I stat'] = lhcb_covariance(lumi=23, include_sys=False)
+covariances['LHCb Phase I stat+sys'] = lhcb_covariance(lumi=23, include_sys=True)
 covariances['LHCb Phase II stat'] = lhcb_covariance(lumi=300, include_sys=False)
 covariances['LHCb Phase II stat+sys'] = lhcb_covariance(lumi=300, include_sys=True)
 
@@ -212,13 +230,12 @@ npscenarios['Scenario I'] = C9C10scen(C9=-1.4, C10=0)
 npscenarios['Scenario II'] = C9C10scen(C9=-0.7, C10=0.7)
 
 
+allobs = observables['CMS present'][:-1] + observables['LHCb present']
+
 def compute_sm_covariance(N=100, threads=4):
     """Compute the SM covariance for all observables."""
     # all observables from all experiments at all phases
-    obs = list(set([o
-                    for name in observables.values()
-                    for o in name]))
-    return flavio.sm_covariance(obs, N=N, threads=threads)
+    return flavio.sm_covariance(allobs, N=N, threads=threads)
 
 
 # Construct Likelihoods
@@ -236,9 +253,11 @@ for phase in ['Phase I', 'Phase II', ]:
 
             likelihoods[' '.join([phase, errscen, npscen])] = FastLikelihood(
                 'Likelihood LHC {} {} {}'.format(phase, errscen, npscen),
-                observables=list(set(observables['LHCb {}'.format(phase)]
+                observables=list(set(
+                                       observables['LHCb {}'.format(phase)]
                                      + observables['CMS {}'.format(phase)]
-                                     + observables['ATLAS {}'.format(phase)])),
+                                     + observables['ATLAS {}'.format(phase)]
+                                     )),
                 include_measurements=[
                     'Projection LHCb {} {} {}'.format(phase, errscen, npscen),
                     'Projection CMS {} {} {}'.format(phase, errscen, npscen),
@@ -265,7 +284,7 @@ if __name__ == '__main__':
 
     for name, L in likelihoods.items():
             smcov_dict = dict(covariance=smcov,
-                              observables=L.observables)
+                              observables=allobs)
             L.sm_covariance.load_dict(smcov_dict)
             L.make_measurement()
 
